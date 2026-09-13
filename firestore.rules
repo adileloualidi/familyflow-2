@@ -59,6 +59,20 @@ service cloud.firestore {
         allow read: if belongsToFamily(familyId);
         allow write: if belongsToFamily(familyId);
       }
+match /meals/{mealId} {
+        allow read: if belongsToFamily(familyId);
+        allow write: if belongsToFamily(familyId);
+      }
+
+      match /shopping/{itemId} {
+        allow read: if belongsToFamily(familyId);
+        allow write: if belongsToFamily(familyId);
+      }
+
+      match /inventory/{itemId} {
+        allow read: if belongsToFamily(familyId);
+        allow write: if belongsToFamily(familyId);
+      }
     }
   }
 }
