@@ -1,0 +1,64 @@
+rules_version = '2';
+
+// Modele : chaque famille est un document sous /families/{familyId}, avec des
+// sous-collections members/tasks/rewards/redemptions. Un utilisateur Firebase Auth
+// (un adulte, jamais un enfant qui n'a pas de compte propre) est relie a sa famille
+// via /users/{uid} = { familyId, memberId }. Seuls les membres de la famille (identifies
+// par ce lien) peuvent lire/ecrire les donnees de cette famille.
+//
+// Limite connue (documentee) : la distinction fine des droits par role (admin vs
+// enfant) n'est pas appliquee cote serveur ici (elle demanderait des custom claims
+// via Cloud Functions) — elle est appliquee cote client. Pour un vrai usage multi-
+// foyers avec un enfant ayant son propre compte, ajouter des custom claims au moment
+// de la creation du membre.
+
+function isSignedIn() {
+  return request.auth != null;
+}
+
+function userLink() {
+  return get(/databases/$(database)/documents/users/$(request.auth.uid));
+}
+
+function belongsToFamily(familyId) {
+  return isSignedIn() && userLink().data.familyId == familyId;
+}
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    match /users/{uid} {
+      allow read: if isSignedIn() && request.auth.uid == uid;
+      // La creation se fait uniquement via createFamilyWithAdmin (premier membre admin).
+      allow create: if isSignedIn() && request.auth.uid == uid;
+      allow update, delete: if false;
+    }
+
+    match /families/{familyId} {
+      allow read: if belongsToFamily(familyId);
+      allow create: if isSignedIn() && request.resource.data.ownerUid == request.auth.uid;
+      allow update: if belongsToFamily(familyId);
+      allow delete: if false;
+
+      match /members/{memberId} {
+        allow read: if belongsToFamily(familyId);
+        allow write: if belongsToFamily(familyId);
+      }
+
+      match /tasks/{taskId} {
+        allow read: if belongsToFamily(familyId);
+        allow write: if belongsToFamily(familyId);
+      }
+
+      match /rewards/{rewardId} {
+        allow read: if belongsToFamily(familyId);
+        allow write: if belongsToFamily(familyId);
+      }
+
+      match /redemptions/{redemptionId} {
+        allow read: if belongsToFamily(familyId);
+        allow write: if belongsToFamily(familyId);
+      }
+    }
+  }
+}

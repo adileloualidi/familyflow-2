@@ -1,0 +1,12 @@
+{
+  // Configuration Cloudflare Workers (nouvelle interface unifiee, remplace l'ancien "Pages").
+  // "main" = le petit script serveur (worker.ts) qui sert le site statique (dossier out/,
+  // genere par `npm run build`) et intercepte /api/ai pour l'assistant Gemini.
+  "name": "familyflow",
+  "compatibility_date": "2024-09-23",
+  "main": "worker.ts",
+  "assets": {
+    "directory": "out",
+    "binding": "ASSETS"
+  }
+}
