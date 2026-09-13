@@ -1,36 +1,49 @@
 rules_version = '2';
 
 // Modele : chaque famille est un document sous /families/{familyId}, avec des
-// sous-collections members/tasks/rewards/redemptions. Un utilisateur Firebase Auth
-// (un adulte, jamais un enfant qui n'a pas de compte propre) est relie a sa famille
-// via /users/{uid} = { familyId, memberId }. Seuls les membres de la famille (identifies
-// par ce lien) peuvent lire/ecrire les donnees de cette famille.
+// sous-collections members/tasks/rewards/redemptions/meals/shopping/inventory.
+// Un utilisateur Firebase Auth (un adulte, jamais un enfant qui n'a pas de compte
+// propre) est relie a sa famille via /users/{uid} = { familyId, memberId }.
+// Seuls les membres de la famille (identifies par ce lien) peuvent lire/ecrire
+// les donnees de cette famille.
+//
+// IMPORTANT : toutes les fonctions doivent etre declarees A L'INTERIEUR du bloc
+// match /databases/{database}/documents, sinon la variable $(database) n'est pas
+// dans leur portee et chaque appel get() recoit un chemin invalide (ce qui fait
+// echouer silencieusement toutes les regles qui en dependent).
 //
 // Limite connue (documentee) : la distinction fine des droits par role (admin vs
 // enfant) n'est pas appliquee cote serveur ici (elle demanderait des custom claims
-// via Cloud Functions) — elle est appliquee cote client. Pour un vrai usage multi-
-// foyers avec un enfant ayant son propre compte, ajouter des custom claims au moment
-// de la creation du membre.
-
-function isSignedIn() {
-  return request.auth != null;
-}
-
-function userLink() {
-  return get(/databases/$(database)/documents/users/$(request.auth.uid));
-}
-
-function isFamilyOwner(familyId) {
-  return isSignedIn() &&
-    get(/databases/$(database)/documents/families/$(familyId)).data.ownerUid == request.auth.uid;
-}
-
-function belongsToFamily(familyId) {
-  return isSignedIn() && (isFamilyOwner(familyId) || userLink().data.familyId == familyId);
-}
+// via Cloud Functions) — elle est appliquee cote client.
 
 service cloud.firestore {
   match /databases/{database}/documents {
+
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function userLink() {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid));
+    }
+
+    // Verifie directement le document famille (ownerUid) plutot que de dependre
+    // uniquement du lien /users/{uid} : ce lien n'existe pas encore au moment de
+    // la toute premiere creation (famille + premier membre admin).
+    function isFamilyOwner(familyId) {
+      return isSignedIn() &&
+        exists(/databases/$(database)/documents/families/$(familyId)) &&
+        get(/databases/$(database)/documents/families/$(familyId)).data.ownerUid == request.auth.uid;
+    }
+
+    function hasUserLink() {
+      return isSignedIn() && exists(/databases/$(database)/documents/users/$(request.auth.uid));
+    }
+
+    function belongsToFamily(familyId) {
+      return isFamilyOwner(familyId) ||
+        (hasUserLink() && userLink().data.familyId == familyId);
+    }
 
     match /users/{uid} {
       allow read: if isSignedIn() && request.auth.uid == uid;
@@ -64,7 +77,8 @@ service cloud.firestore {
         allow read: if belongsToFamily(familyId);
         allow write: if belongsToFamily(familyId);
       }
-match /meals/{mealId} {
+
+      match /meals/{mealId} {
         allow read: if belongsToFamily(familyId);
         allow write: if belongsToFamily(familyId);
       }
