@@ -27,7 +27,7 @@ export function TaskDetailModal({ familyId, task, members, activeMember, isAdmin
 
   async function toggleSubtask(idx: number) {
     const sub = task.subtasks.slice();
-    sub[idx] = { ...sub[idx], done: !sub[idx].done };
+    sub[idx] = { ...sub[idx]!, done: !sub[idx]!.done };
     await updateTask(familyId, task.id, { subtasks: sub });
   }
 
