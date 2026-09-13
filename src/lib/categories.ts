@@ -13,7 +13,7 @@ export const CATEGORIES: { id: CategoryId; label: string; icon: string; keywords
 ];
 
 export function categoryOf(id: CategoryId) {
-  return CATEGORIES.find((c) => c.id === id) ?? CATEGORIES[CATEGORIES.length - 1];
+  return CATEGORIES.find((c) => c.id === id) ?? CATEGORIES[CATEGORIES.length - 1]!;
 }
 
 const DIACRITICS = /[̀-ͯ]/g;
