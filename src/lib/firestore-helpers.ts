@@ -80,8 +80,8 @@ export async function createFamilyWithAdmin(opts: { uid: string; familyName: str
     badges: [],
     createdAt: new Date().toISOString(),
   };
+    await setDoc(userDoc(opts.uid), { familyId: familyRef.id, memberId: memberRef.id });
   await setDoc(memberRef, member);
-  await setDoc(userDoc(opts.uid), { familyId: familyRef.id, memberId: memberRef.id });
   return { familyId: familyRef.id, memberId: memberRef.id };
 }
 
