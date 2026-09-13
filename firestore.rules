@@ -20,8 +20,13 @@ function userLink() {
   return get(/databases/$(database)/documents/users/$(request.auth.uid));
 }
 
+function isFamilyOwner(familyId) {
+  return isSignedIn() &&
+    get(/databases/$(database)/documents/families/$(familyId)).data.ownerUid == request.auth.uid;
+}
+
 function belongsToFamily(familyId) {
-  return isSignedIn() && userLink().data.familyId == familyId;
+  return isSignedIn() && (isFamilyOwner(familyId) || userLink().data.familyId == familyId);
 }
 
 service cloud.firestore {
