@@ -1,9 +1,17 @@
 "use client";
 
-import { useState } from "react";
-import { AppShell } from "@/components/AppShell";
+import { useMemo, useState } from "react";
+import { AppShell, EmptyState, PageHeader } from "@/components/AppShell";
+import { initials } from "@/components/TaskRow";
 import { useAuth } from "@/context/AuthContext";
 import { createReward, deleteReward, redeemReward, setRedemptionStatus } from "@/lib/firestore-helpers";
+
+const CATEGORY_ICON: Record<string, string> = {
+  "Argent de poche": "💶",
+  "Temps ecran": "📱",
+  Sortie: "🎡",
+  Personnalisee: "🎁",
+};
 
 export default function RewardsPage() {
   const { familyId, members, rewards, redemptions, activeMemberId } = useAuth();
@@ -12,14 +20,18 @@ export default function RewardsPage() {
   const [showNew, setShowNew] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  const pending = useMemo(() => redemptions.filter((r) => r.status === "en attente"), [redemptions]);
+  const mine = useMemo(() => redemptions.filter((r) => r.memberId === activeMemberId), [redemptions, activeMemberId]);
+
   if (!familyId || !activeMember) return null;
 
-  const pending = redemptions.filter((r) => r.status === "en attente");
-  const mine = redemptions.filter((r) => r.memberId === activeMember.id);
+  const points = activeMember.points || 0;
+  const cheapest = rewards.length > 0 ? Math.min(...rewards.map((r) => r.cost)) : 0;
 
   async function handleRedeem(rewardId: string) {
     const reward = rewards.find((r) => r.id === rewardId);
     if (!reward || !activeMember) return;
+    setError(null);
     try {
       await redeemReward(familyId!, activeMember, reward);
     } catch (e) {
@@ -27,68 +39,159 @@ export default function RewardsPage() {
     }
   }
 
+  const list = isAdmin ? pending : mine;
+
   return (
     <AppShell>
-      <div className="flex justify-between mb-4">
-        <h2 className="text-xl font-extrabold">Catalogue de recompenses</h2>
-        {isAdmin && (
-          <button className="btn primary" onClick={() => setShowNew(true)}>
-            + Recompense
-          </button>
+      <PageHeader
+        eyebrow="Boutique"
+        title="Les recompenses"
+        subtitle="Les points gagnes sur les taches s'echangent ici."
+        action={
+          isAdmin && (
+            <button className="btn primary" onClick={() => setShowNew(true)}>
+              <span aria-hidden>＋</span> Recompense
+            </button>
+          )
+        }
+      />
+
+      {/* Solde du membre actif */}
+      <div
+        className="card card-lg mb-5 flex items-center gap-4 animate-in"
+        style={{ background: "linear-gradient(135deg, var(--section-soft), var(--surface))" }}
+      >
+        <span
+          className="avatar w-14 h-14 text-base"
+          style={{ background: `linear-gradient(135deg, ${activeMember.color || "var(--brand)"}, color-mix(in srgb, ${activeMember.color || "var(--brand)"} 60%, #fff))` }}
+        >
+          {initials(activeMember.name)}
+        </span>
+        <div className="flex-1 min-w-0">
+          <p className="eyebrow">Solde de {activeMember.name}</p>
+          <p className="display leading-none mt-1" style={{ color: "var(--section)" }}>
+            {points}
+            <span className="text-lg font-extrabold ml-1.5">pts</span>
+          </p>
+          {activeMember.streak > 0 && <p className="text-xs text-ink-dim mt-1.5">🔥 {activeMember.streak} jours d'affilee</p>}
+        </div>
+        {rewards.length > 0 && points < cheapest && (
+          <div className="text-right hidden sm:block">
+            <p className="text-xs text-ink-dim">Prochaine recompense dans</p>
+            <p className="title-lg" style={{ color: "var(--section)" }}>
+              {cheapest - points} pts
+            </p>
+          </div>
         )}
       </div>
 
-      {error && <p className="text-sm text-red-600 mb-2">{error}</p>}
+      {error && (
+        <div className="flex items-center gap-2 text-sm p-3 rounded-xl mb-4" style={{ background: "var(--danger-soft)", color: "var(--danger)" }} role="alert">
+          <span aria-hidden>✕</span>
+          <span className="font-semibold">{error}</span>
+        </div>
+      )}
 
-      <div className="grid md:grid-cols-3 gap-3">
-        {rewards.map((r) => (
-          <div key={r.id} className="card">
-            <div className="flex justify-between">
-              <b>{r.title}</b>
-              <span className="text-xs font-bold px-2 py-0.5 rounded-full bg-[var(--surface-2)]">{r.cost} pts</span>
-            </div>
-            <div className="text-xs opacity-60 mb-3">{r.category}</div>
-            <div className="flex justify-between">
-              <button className="btn primary text-xs" disabled={activeMember.points < r.cost} onClick={() => handleRedeem(r.id)}>
-                Echanger
-              </button>
-              {isAdmin && (
-                <button className="btn danger text-xs" onClick={() => deleteReward(familyId, r.id)}>
-                  Supprimer
-                </button>
-              )}
-            </div>
-          </div>
-        ))}
-        {rewards.length === 0 && <p className="opacity-60 text-sm col-span-full">Aucune recompense pour le moment.</p>}
-      </div>
-
-      <div className="card mt-4">
-        <h3 className="font-bold mb-2">{isAdmin ? "Echanges en attente" : "Mon historique"}</h3>
-        {(isAdmin ? pending : mine).map((r) => {
-          const m = members.find((x) => x.id === r.memberId);
-          return (
-            <div key={r.id} className="flex justify-between items-center py-2 border-b border-[var(--border)] text-sm">
-              <span>
-                {isAdmin ? `${m?.name ?? "?"} → ` : ""}
-                {r.rewardTitle} ({r.cost} pts)
-              </span>
-              {isAdmin ? (
-                <div className="flex gap-2">
-                  <button className="btn text-xs bg-emerald-600 text-white border-emerald-600" onClick={() => setRedemptionStatus(familyId, r.id, "valide")}>
-                    Valider
-                  </button>
-                  <button className="btn danger text-xs" onClick={() => setRedemptionStatus(familyId, r.id, "refuse")}>
-                    Refuser
-                  </button>
+      {/* Catalogue */}
+      {rewards.length === 0 ? (
+        <div className="card card-lg mb-5">
+          <EmptyState
+            icon="🎁"
+            title="Aucune recompense dans le catalogue"
+            hint={isAdmin ? "Ajoute-en une pour donner un but aux points gagnes." : "L'administrateur n'en a pas encore ajoute."}
+          />
+        </div>
+      ) : (
+        <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4 mb-5">
+          {rewards.map((r) => {
+            const affordable = points >= r.cost;
+            const pct = r.cost > 0 ? Math.min(100, (points / r.cost) * 100) : 100;
+            return (
+              <div key={r.id} className="card card-lg flex flex-col animate-in" style={affordable ? { borderColor: "var(--section)" } : undefined}>
+                <div className="flex items-start gap-3 mb-3">
+                  <span className="w-11 h-11 rounded-xl grid place-items-center text-lg shrink-0" style={{ background: "var(--section-soft)" }} aria-hidden>
+                    {CATEGORY_ICON[r.category] ?? "🎁"}
+                  </span>
+                  <div className="min-w-0 flex-1">
+                    <p className="font-bold text-[0.9375rem] leading-snug">{r.title}</p>
+                    <p className="text-[0.6875rem] text-ink-faint font-semibold mt-0.5">{r.category}</p>
+                  </div>
+                  <span className="badge accent tabular">{r.cost} pts</span>
                 </div>
-              ) : (
-                <span className="text-xs px-2 py-0.5 rounded-full bg-[var(--surface-2)]">{r.status}</span>
-              )}
-            </div>
-          );
-        })}
-        {(isAdmin ? pending : mine).length === 0 && <p className="text-sm opacity-60">Rien pour le moment</p>}
+
+                {!affordable && (
+                  <div className="mb-3">
+                    <div className="meter">
+                      <span style={{ width: `${pct}%` }} />
+                    </div>
+                    <p className="text-[0.6875rem] text-ink-faint mt-1.5 font-semibold">Encore {r.cost - points} pts</p>
+                  </div>
+                )}
+
+                <div className="flex gap-2 mt-auto">
+                  <button className="btn primary flex-1" disabled={!affordable} onClick={() => handleRedeem(r.id)}>
+                    {affordable ? "Echanger" : "Pas encore"}
+                  </button>
+                  {isAdmin && (
+                    <button className="btn icon ghost" style={{ color: "var(--danger)" }} onClick={() => deleteReward(familyId, r.id)} aria-label={`Supprimer ${r.title}`}>
+                      ✕
+                    </button>
+                  )}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
+
+      {/* Echanges */}
+      <div className="card card-lg animate-in">
+        <div className="flex items-center gap-2 mb-2">
+          <h2 className="title">{isAdmin ? "Echanges a valider" : "Mes echanges"}</h2>
+          {list.length > 0 && <span className="badge">{list.length}</span>}
+        </div>
+        {list.length === 0 ? (
+          <EmptyState icon={isAdmin ? "✅" : "🧾"} title={isAdmin ? "Aucune demande en attente" : "Aucun echange pour l'instant"} />
+        ) : (
+          list.map((r) => {
+            const m = members.find((x) => x.id === r.memberId);
+            return (
+              <div key={r.id} className="row">
+                {isAdmin && m && (
+                  <span
+                    className="avatar w-8 h-8 text-[0.6875rem]"
+                    style={{ background: `linear-gradient(135deg, ${m.color || "var(--brand)"}, color-mix(in srgb, ${m.color || "var(--brand)"} 60%, #fff))` }}
+                  >
+                    {initials(m.name)}
+                  </span>
+                )}
+                <div className="flex-1 min-w-0">
+                  <p className="font-semibold text-sm truncate">{r.rewardTitle}</p>
+                  <p className="text-[0.6875rem] text-ink-faint font-semibold mt-0.5">
+                    {isAdmin && m ? `${m.name} · ` : ""}
+                    {r.cost} pts
+                  </p>
+                </div>
+                {isAdmin ? (
+                  <div className="flex gap-2 shrink-0">
+                    <button
+                      className="btn sm"
+                      style={{ background: "var(--success)", color: "#fff", borderColor: "transparent" }}
+                      onClick={() => setRedemptionStatus(familyId, r.id, "valide")}
+                    >
+                      Valider
+                    </button>
+                    <button className="btn sm danger" onClick={() => setRedemptionStatus(familyId, r.id, "refuse")}>
+                      Refuser
+                    </button>
+                  </div>
+                ) : (
+                  <span className={`badge ${r.status === "valide" ? "success" : r.status === "refuse" ? "danger" : "warning"}`}>{r.status}</span>
+                )}
+              </div>
+            );
+          })
+        )}
       </div>
 
       {showNew && <NewRewardModal familyId={familyId} onClose={() => setShowNew(false)} />}
@@ -108,27 +211,50 @@ function NewRewardModal({ familyId, onClose }: { familyId: string; onClose: () =
   }
 
   return (
-    <div className="fixed inset-0 bg-black/40 flex items-center justify-center p-4 z-50" onClick={(e) => e.target === e.currentTarget && onClose()}>
-      <div className="card w-full max-w-sm">
-        <div className="flex justify-between mb-2">
-          <h3 className="font-bold text-lg">Nouvelle recompense</h3>
-          <button onClick={onClose} className="opacity-60">
+    <div
+      className="fixed inset-0 z-50 grid place-items-center p-4"
+      style={{ background: "rgba(20, 14, 8, 0.45)", backdropFilter: "blur(3px)" }}
+      onClick={(e) => e.target === e.currentTarget && onClose()}
+      role="dialog"
+      aria-modal="true"
+    >
+      <div className="card card-lg w-full max-w-sm shadow-xl animate-in">
+        <div className="flex justify-between items-center mb-4">
+          <h2 className="title-lg">Nouvelle recompense</h2>
+          <button className="btn icon ghost" onClick={onClose} aria-label="Fermer">
             ✕
           </button>
         </div>
-        <label className="text-xs font-bold opacity-70">Titre</label>
-        <input type="text" value={title} onChange={(e) => setTitle(e.target.value)} placeholder="30 min d'ecran" />
-        <label className="text-xs font-bold opacity-70">Cout (points)</label>
-        <input type="number" min={1} value={cost} onChange={(e) => setCost(Number(e.target.value))} />
-        <label className="text-xs font-bold opacity-70">Categorie</label>
-        <select value={category} onChange={(e) => setCategory(e.target.value)}>
+
+        <label className="field-label" htmlFor="rw-title">
+          Titre
+        </label>
+        <input id="rw-title" type="text" value={title} onChange={(e) => setTitle(e.target.value)} placeholder="30 min d'ecran" autoFocus />
+
+        <label className="field-label" htmlFor="rw-cost">
+          Cout en points
+        </label>
+        <input id="rw-cost" type="number" min={1} value={cost} onChange={(e) => setCost(Number(e.target.value))} />
+
+        <label className="field-label" htmlFor="rw-cat">
+          Categorie
+        </label>
+        <select id="rw-cat" value={category} onChange={(e) => setCategory(e.target.value)}>
           {["Argent de poche", "Temps ecran", "Sortie", "Personnalisee"].map((c) => (
-            <option key={c}>{c}</option>
+            <option key={c}>
+              {CATEGORY_ICON[c]} {c}
+            </option>
           ))}
         </select>
-        <button className="btn primary mt-2" onClick={save}>
-          Creer
-        </button>
+
+        <div className="flex gap-2 mt-2">
+          <button className="btn ghost flex-1" onClick={onClose}>
+            Annuler
+          </button>
+          <button className="btn primary flex-1" onClick={save} disabled={!title.trim()}>
+            Creer
+          </button>
+        </div>
       </div>
     </div>
   );

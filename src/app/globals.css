@@ -2,78 +2,808 @@
 @tailwind components;
 @tailwind utilities;
 
+/* =========================================================================
+   FamilyFlow — systeme de design
+   Palette chaleureuse "maison" : creme, terracotta, sauge. Chaque section de
+   l'app possede son propre accent (--section / --section-2) injecte par
+   AppShell, ce qui permet aux composants partages (titres, cartes, boutons)
+   de s'y adapter automatiquement sans code specifique par page.
+   ========================================================================= */
+
 :root {
-  --bg: #faf7f2;
+  /* Fonds et surfaces */
+  --bg: #f7f4ee;
+  --bg-tint: #efe9df;
   --surface: #ffffff;
-  --surface-2: #f3efe6;
-  --border: #e6ddcd;
-  --text: #2b2620;
-  --text-dim: #6f6659;
+  --surface-2: #f4f0e8;
+  --surface-3: #ebe5da;
+  --border: #e3dbcc;
+  --border-strong: #d3c8b4;
+
+  /* Texte */
+  --text: #221e19;
+  --text-dim: #6b6255;
+  --text-faint: #9a9080;
+
+  /* Marque */
+  --brand: #d9603b;
+  --brand-2: #ec8b4a;
+  --brand-soft: #fbe9e0;
+
+  /* Couleurs semantiques */
+  --success: #2e8b6a;
+  --success-soft: #e2f2ec;
+  --danger: #c44536;
+  --danger-soft: #fbe6e3;
+  --warning: #c98a1a;
+  --warning-soft: #fbf0d9;
+  --info: #3d6fb5;
+  --info-soft: #e6eefa;
+
+  /* Accent de section (surcharge par AppShell selon l'onglet actif) */
+  --section: #d9603b;
+  --section-2: #ec8b4a;
+  --section-soft: #fbe9e0;
+
+  /* Ombres en couches — la profondeur vient de l'empilement, pas d'un flou unique */
+  --shadow-sm: 0 1px 2px rgba(60, 44, 24, 0.06), 0 1px 3px rgba(60, 44, 24, 0.05);
+  --shadow-md: 0 2px 4px rgba(60, 44, 24, 0.05), 0 6px 16px -4px rgba(60, 44, 24, 0.1);
+  --shadow-lg: 0 4px 8px rgba(60, 44, 24, 0.06), 0 16px 32px -8px rgba(60, 44, 24, 0.14);
+  --shadow-xl: 0 8px 16px rgba(60, 44, 24, 0.08), 0 28px 56px -12px rgba(60, 44, 24, 0.2);
+
+  --radius: 18px;
+  --radius-sm: 12px;
+  --radius-lg: 26px;
+
+  color-scheme: light;
 }
 
 .dark {
-  --bg: #1c1a17;
-  --surface: #26231e;
-  --surface-2: #2f2b24;
-  --border: #3c362c;
-  --text: #f1ece1;
-  --text-dim: #b3a996;
+  --bg: #171512;
+  --bg-tint: #1d1a16;
+  --surface: #221f1a;
+  --surface-2: #2a2621;
+  --surface-3: #332e27;
+  --border: #37312a;
+  --border-strong: #4a4238;
+
+  --text: #f4efe5;
+  --text-dim: #b5ab99;
+  --text-faint: #857c6d;
+
+  --brand: #ee7a4f;
+  --brand-2: #f2a061;
+  --brand-soft: #3a2519;
+
+  --success: #4bbf92;
+  --success-soft: #1b3229;
+  --danger: #e56a58;
+  --danger-soft: #38211d;
+  --warning: #e0ab48;
+  --warning-soft: #352a15;
+  --info: #6b9ae0;
+  --info-soft: #1c2839;
+
+  --section: #ee7a4f;
+  --section-2: #f2a061;
+  --section-soft: #3a2519;
+
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.3);
+  --shadow-md: 0 2px 4px rgba(0, 0, 0, 0.3), 0 6px 16px -4px rgba(0, 0, 0, 0.45);
+  --shadow-lg: 0 4px 8px rgba(0, 0, 0, 0.35), 0 16px 32px -8px rgba(0, 0, 0, 0.55);
+  --shadow-xl: 0 8px 16px rgba(0, 0, 0, 0.4), 0 28px 56px -12px rgba(0, 0, 0, 0.65);
+
+  color-scheme: dark;
+}
+
+* {
+  -webkit-tap-highlight-color: transparent;
 }
 
 body {
   background: var(--bg);
   color: var(--text);
+  font-feature-settings: "cv02", "cv03", "cv04", "ss01";
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
 }
 
+/* Voile decoratif : deux halos tres diffus qui donnent de la profondeur au fond
+   sans jamais intercepter les clics. */
+body::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 0;
+  background:
+    radial-gradient(60rem 30rem at 12% -8%, color-mix(in srgb, var(--brand) 11%, transparent), transparent 70%),
+    radial-gradient(48rem 26rem at 92% 4%, color-mix(in srgb, var(--success) 9%, transparent), transparent 70%);
+}
+
+::selection {
+  background: color-mix(in srgb, var(--section) 25%, transparent);
+}
+
+/* ---------- Typographie ---------- */
+
+.display {
+  font-size: clamp(2rem, 5.5vw, 3rem);
+  line-height: 1.04;
+  letter-spacing: -0.035em;
+  font-weight: 800;
+}
+
+.title-lg {
+  font-size: clamp(1.35rem, 3vw, 1.7rem);
+  line-height: 1.15;
+  letter-spacing: -0.022em;
+  font-weight: 800;
+}
+
+.title {
+  font-size: 1.0625rem;
+  line-height: 1.3;
+  letter-spacing: -0.014em;
+  font-weight: 700;
+}
+
+.eyebrow {
+  font-size: 0.6875rem;
+  font-weight: 800;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--text-faint);
+}
+
+.text-gradient {
+  background: linear-gradient(135deg, var(--section) 0%, var(--section-2) 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+.tabular {
+  font-variant-numeric: tabular-nums;
+}
+
+/* ---------- Cartes ---------- */
+
 .card {
+  position: relative;
   background: var(--surface);
   border: 1px solid var(--border);
-  border-radius: 16px;
-  box-shadow: 0 1px 3px rgba(40, 30, 10, 0.08), 0 6px 20px rgba(40, 30, 10, 0.06);
-  padding: 16px;
+  border-radius: var(--radius);
+  box-shadow: var(--shadow-sm);
+  padding: 20px;
 }
+
+.card-lg {
+  padding: 26px;
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-md);
+}
+
+/* Carte cliquable : le relevement au survol est desactive pour qui prefere
+   moins d'animation. */
+.card-interactive {
+  transition: transform 0.18s ease, box-shadow 0.18s ease, border-color 0.18s ease;
+  cursor: pointer;
+}
+.card-interactive:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-lg);
+  border-color: var(--border-strong);
+}
+
+/* Filet colore en haut de carte, pour signaler une section ou une alerte */
+.card-accent::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 22px;
+  right: 22px;
+  height: 3px;
+  border-radius: 0 0 3px 3px;
+  background: linear-gradient(90deg, var(--section), var(--section-2));
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .card-interactive,
+  .btn,
+  .nav-pill {
+    transition: none;
+  }
+  .card-interactive:hover {
+    transform: none;
+  }
+}
+
+/* ---------- Boutons ---------- */
 
 .btn {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  gap: 6px;
-  padding: 9px 14px;
-  border-radius: 10px;
+  gap: 7px;
+  padding: 10px 16px;
+  border-radius: var(--radius-sm);
   border: 1px solid var(--border);
-  background: var(--surface-2);
+  background: var(--surface);
   color: var(--text);
   font-weight: 700;
-  font-size: 13px;
+  font-size: 0.8125rem;
+  letter-spacing: -0.006em;
+  box-shadow: var(--shadow-sm);
+  transition: transform 0.12s ease, box-shadow 0.12s ease, background 0.12s ease, border-color 0.12s ease;
+  cursor: pointer;
+  white-space: nowrap;
 }
+.btn:hover:not(:disabled) {
+  border-color: var(--border-strong);
+  box-shadow: var(--shadow-md);
+}
+.btn:active:not(:disabled) {
+  transform: translateY(1px);
+  box-shadow: var(--shadow-sm);
+}
+
 .btn.primary {
-  background: #e0703a;
-  border-color: #e0703a;
-  color: white;
+  background: linear-gradient(135deg, var(--section) 0%, var(--section-2) 100%);
+  border-color: transparent;
+  color: #fff;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.12), 0 8px 20px -6px color-mix(in srgb, var(--section) 55%, transparent);
 }
+.btn.primary:hover:not(:disabled) {
+  filter: brightness(1.05);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.14), 0 12px 26px -6px color-mix(in srgb, var(--section) 65%, transparent);
+}
+
 .btn.danger {
-  background: #c14545;
-  border-color: #c14545;
-  color: white;
+  background: var(--danger);
+  border-color: transparent;
+  color: #fff;
 }
+
+.btn.ghost {
+  background: transparent;
+  border-color: transparent;
+  box-shadow: none;
+}
+.btn.ghost:hover:not(:disabled) {
+  background: var(--surface-2);
+  box-shadow: none;
+}
+
+.btn.sm {
+  padding: 6px 11px;
+  font-size: 0.75rem;
+  border-radius: 9px;
+}
+
+.btn.icon {
+  padding: 8px;
+  width: 34px;
+  height: 34px;
+  border-radius: 10px;
+}
+
 .btn:disabled {
-  opacity: 0.5;
+  opacity: 0.45;
   cursor: not-allowed;
+  box-shadow: none;
 }
+
+.btn:focus-visible,
+a:focus-visible,
+input:focus-visible,
+select:focus-visible,
+textarea:focus-visible,
+button:focus-visible {
+  outline: 2px solid var(--section);
+  outline-offset: 2px;
+}
+
+/* ---------- Champs de formulaire ---------- */
 
 input[type="text"],
 input[type="number"],
 input[type="date"],
 input[type="email"],
 input[type="password"],
+input[type="search"],
 select,
 textarea {
   width: 100%;
-  padding: 9px 10px;
-  border-radius: 9px;
+  padding: 11px 13px;
+  border-radius: var(--radius-sm);
   border: 1px solid var(--border);
-  background: var(--bg);
+  background: var(--bg-tint);
   color: var(--text);
-  font-size: 13px;
+  font-size: 0.875rem;
+  font-family: inherit;
+  margin-bottom: 12px;
+  transition: border-color 0.14s ease, box-shadow 0.14s ease, background 0.14s ease;
+}
+
+input::placeholder,
+textarea::placeholder {
+  color: var(--text-faint);
+}
+
+input:focus,
+select:focus,
+textarea:focus {
+  outline: none;
+  background: var(--surface);
+  border-color: var(--section);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--section) 16%, transparent);
+}
+
+input[type="checkbox"] {
+  width: 18px;
+  height: 18px;
+  accent-color: var(--section);
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
+.field-label {
+  display: block;
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: var(--text-dim);
+  margin-bottom: 5px;
+}
+
+/* ---------- Badges et pastilles ---------- */
+
+.badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 4px 10px;
+  border-radius: 999px;
+  font-size: 0.6875rem;
+  font-weight: 800;
+  letter-spacing: -0.005em;
+  background: var(--surface-2);
+  color: var(--text-dim);
+  border: 1px solid var(--border);
+  white-space: nowrap;
+}
+.badge.success {
+  background: var(--success-soft);
+  color: var(--success);
+  border-color: transparent;
+}
+.badge.danger {
+  background: var(--danger-soft);
+  color: var(--danger);
+  border-color: transparent;
+}
+.badge.warning {
+  background: var(--warning-soft);
+  color: var(--warning);
+  border-color: transparent;
+}
+.badge.info {
+  background: var(--info-soft);
+  color: var(--info);
+  border-color: transparent;
+}
+.badge.accent {
+  background: var(--section-soft);
+  color: var(--section);
+  border-color: transparent;
+}
+
+/* ---------- Navigation ---------- */
+
+.nav-pill {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 9px 14px;
+  border-radius: 11px;
+  font-size: 0.8125rem;
+  font-weight: 700;
+  color: var(--text-dim);
+  white-space: nowrap;
+  transition: color 0.14s ease, background 0.14s ease;
+}
+.nav-pill:hover {
+  color: var(--text);
+  background: var(--surface-2);
+}
+.nav-pill[data-active="true"] {
+  color: #fff;
+  background: linear-gradient(135deg, var(--section), var(--section-2));
+  box-shadow: 0 2px 10px -2px color-mix(in srgb, var(--section) 60%, transparent);
+}
+
+/* Barre d'onglets mobile, façon application native */
+.tabbar {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  z-index: 40;
+  display: grid;
+  grid-auto-flow: column;
+  background: color-mix(in srgb, var(--surface) 88%, transparent);
+  backdrop-filter: blur(16px) saturate(1.5);
+  -webkit-backdrop-filter: blur(16px) saturate(1.5);
+  border-top: 1px solid var(--border);
+  padding: 6px 4px calc(6px + env(safe-area-inset-bottom));
+  box-shadow: 0 -4px 20px -6px rgba(60, 44, 24, 0.16);
+}
+
+.tabbar-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 3px;
+  padding: 6px 2px;
+  border-radius: 10px;
+  font-size: 0.625rem;
+  font-weight: 700;
+  color: var(--text-faint);
+  line-height: 1.1;
+}
+.tabbar-item[data-active="true"] {
+  color: var(--section);
+}
+.tabbar-item .tab-icon {
+  font-size: 1.125rem;
+  line-height: 1;
+}
+
+/* ---------- Divers ---------- */
+
+.divider {
+  height: 1px;
+  background: var(--border);
+  border: 0;
+}
+
+.row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 11px 0;
+  border-bottom: 1px solid var(--border);
+}
+.row:last-child {
+  border-bottom: 0;
+}
+
+.empty {
+  text-align: center;
+  padding: 32px 20px;
+  color: var(--text-faint);
+}
+.empty-icon {
+  font-size: 2.25rem;
+  display: block;
   margin-bottom: 10px;
+  opacity: 0.75;
+}
+
+.avatar {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  font-weight: 800;
+  color: #fff;
+  flex-shrink: 0;
+  box-shadow: var(--shadow-sm);
+}
+
+.scroll-x {
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+.scroll-x::-webkit-scrollbar {
+  display: none;
+}
+
+/* Barre de progression fine, utilisee pour les recompenses et les seuils */
+.meter {
+  height: 7px;
+  border-radius: 999px;
+  background: var(--surface-3);
+  overflow: hidden;
+}
+.meter > span {
+  display: block;
+  height: 100%;
+  border-radius: 999px;
+  background: linear-gradient(90deg, var(--section), var(--section-2));
+  transition: width 0.4s cubic-bezier(0.2, 0.8, 0.3, 1);
+}
+
+/* Pulsation du micro pendant l'ecoute vocale */
+@keyframes listening-pulse {
+  0%, 100% {
+    box-shadow: 0 0 0 0 color-mix(in srgb, var(--danger) 45%, transparent);
+  }
+  50% {
+    box-shadow: 0 0 0 9px color-mix(in srgb, var(--danger) 0%, transparent);
+  }
+}
+.listening {
+  background: var(--danger) !important;
+  border-color: transparent !important;
+  color: #fff !important;
+  animation: listening-pulse 1.5s ease-out infinite;
+}
+
+@keyframes fade-up {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+.animate-in {
+  animation: fade-up 0.32s cubic-bezier(0.2, 0.8, 0.3, 1) both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .animate-in,
+  .listening {
+    animation: none;
+  }
+}
+
+/* Le contenu doit passer au-dessus du voile decoratif du fond */
+.layer {
+  position: relative;
+  z-index: 1;
+}
+
+/* =========================================================================
+   Composants de liste de taches
+   ========================================================================= */
+
+/* Case a cocher circulaire : l'element signature des bonnes applis de taches.
+   L'input natif reste present pour l'accessibilite mais est rendu invisible. */
+.check {
+  position: relative;
+  width: 22px;
+  height: 22px;
+  flex-shrink: 0;
+  cursor: pointer;
+  display: grid;
+  place-items: center;
+}
+.check input {
+  position: absolute;
+  opacity: 0;
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  cursor: pointer;
+}
+.check .box {
+  width: 21px;
+  height: 21px;
+  border-radius: 50%;
+  border: 2px solid var(--border-strong);
+  background: var(--surface);
+  display: grid;
+  place-items: center;
+  transition: border-color 0.15s ease, background 0.15s ease, transform 0.15s ease;
+}
+.check:hover .box {
+  border-color: var(--section);
+}
+.check .box svg {
+  width: 12px;
+  height: 12px;
+  stroke: #fff;
+  stroke-width: 3.2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  fill: none;
+  stroke-dasharray: 22;
+  stroke-dashoffset: 22;
+  transition: stroke-dashoffset 0.22s cubic-bezier(0.3, 1.4, 0.5, 1) 0.04s;
+}
+.check input:checked + .box {
+  background: var(--section);
+  border-color: var(--section);
+}
+.check input:checked + .box svg {
+  stroke-dashoffset: 0;
+}
+.check input:active + .box {
+  transform: scale(0.88);
+}
+.check input:focus-visible + .box {
+  outline: 2px solid var(--section);
+  outline-offset: 2px;
+}
+
+/* Variante "en attente de validation" : contour plein, pastille creuse au centre. */
+.check.pending .box {
+  border-color: var(--warning);
+}
+.check.pending .box::after {
+  content: "";
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--warning);
+}
+
+/* Ligne de tache : calme au repos, les actions n'apparaissent qu'au survol. */
+.task-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 12px 12px;
+  margin: 0 -12px;
+  border-radius: 14px;
+  transition: background 0.14s ease;
+  position: relative;
+  text-align: left;
+  width: calc(100% + 24px);
+}
+.task-row:hover {
+  background: var(--surface-2);
+}
+.task-row + .task-row::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 46px;
+  right: 12px;
+  height: 1px;
+  background: var(--border);
+}
+.task-row:hover::before,
+.task-row:hover + .task-row::before {
+  opacity: 0;
+}
+.task-actions {
+  opacity: 0;
+  transition: opacity 0.14s ease;
+}
+.task-row:hover .task-actions,
+.task-row:focus-within .task-actions {
+  opacity: 1;
+}
+@media (hover: none) {
+  .task-actions {
+    opacity: 1;
+  }
+}
+
+.task-done .task-title {
+  text-decoration: line-through;
+  color: var(--text-faint);
+}
+
+/* Pastille de priorite / difficulte */
+.dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  flex-shrink: 0;
+  display: inline-block;
+}
+
+/* En-tete de groupe dans la liste (Aujourd'hui, Demain, En retard…) */
+.group-head {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  padding: 18px 0 8px;
+  font-size: 0.8125rem;
+  font-weight: 800;
+  letter-spacing: -0.01em;
+}
+.group-head:first-child {
+  padding-top: 2px;
+}
+.group-head .count {
+  font-size: 0.6875rem;
+  font-weight: 800;
+  color: var(--text-faint);
+  background: var(--surface-2);
+  padding: 1px 8px;
+  border-radius: 999px;
+}
+
+/* Controle segmente facon iOS, pour les filtres principaux */
+.segmented {
+  display: inline-flex;
+  padding: 3px;
+  gap: 2px;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+}
+.segmented button {
+  padding: 6px 13px;
+  border-radius: 9px;
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: var(--text-dim);
+  white-space: nowrap;
+  transition: background 0.14s ease, color 0.14s ease, box-shadow 0.14s ease;
+}
+.segmented button[data-active="true"] {
+  background: var(--surface);
+  color: var(--text);
+  box-shadow: var(--shadow-sm);
+}
+
+/* Barre d'ajout rapide : un champ, une touche Entree, la tache est creee. */
+.quick-add {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 4px 6px 4px 14px;
+  border-radius: var(--radius);
+  border: 1px solid var(--border);
+  background: var(--surface);
+  box-shadow: var(--shadow-sm);
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+.quick-add:focus-within {
+  border-color: var(--section);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--section) 14%, transparent), var(--shadow-md);
+}
+.quick-add input {
+  flex: 1;
+  border: 0 !important;
+  background: transparent !important;
+  box-shadow: none !important;
+  margin: 0 !important;
+  padding: 11px 0 !important;
+  font-size: 0.9375rem !important;
+  font-weight: 600;
+}
+
+/* Anneau de progression (tableau de bord) */
+.ring {
+  transform: rotate(-90deg);
+}
+.ring circle {
+  fill: none;
+  stroke-linecap: round;
+}
+.ring .track {
+  stroke: var(--surface-3);
+}
+.ring .value {
+  stroke: url(#ringGradient);
+  transition: stroke-dashoffset 0.7s cubic-bezier(0.2, 0.8, 0.3, 1);
+}
+
+/* Retrait progressif d'une tache qu'on vient de cocher */
+@keyframes task-complete {
+  to {
+    opacity: 0.45;
+  }
+}
+.task-completing {
+  animation: task-complete 0.3s ease forwards;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .check .box svg,
+  .ring .value,
+  .task-completing {
+    transition: none;
+    animation: none;
+  }
 }
