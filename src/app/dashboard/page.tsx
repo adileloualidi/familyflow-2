@@ -1,78 +1,181 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+
+interface Member {
+  id: string;
+  name: string;
+  role: string;
+  age?: string;
+  prayerEnabled: boolean;
+  avatarBg: string;
+}
+
+interface TaskItem {
+  id: string;
+  title: string;
+  subtext: string;
+  assignee: string;
+  points: number;
+  status: 'pending_validation' | 'in_progress' | 'to_do' | 'completed';
+}
+
+interface ShopItem {
+  id: string;
+  name: string;
+  tag: string;
+  qty: string;
+}
+
+interface CaddieItem {
+  id: string;
+  name: string;
+  author: string;
+  time: string;
+}
 
 export default function DashboardPage() {
   const [activeTab, setActiveTab] = useState<'tasks' | 'shopping' | 'prayers' | 'foyer' | 'settings'>('tasks');
   const [points, setPoints] = useState(420);
-  const [validatedTasks, setValidatedTasks] = useState<number[]>([]);
+  
+  // Paramètres modifiables
+  const [familyName, setFamilyName] = useState('Famille El Oualidi');
+  const [foyerCode, setFoyerCode] = useState('FLOW-9824');
+  const [prayerReminderMinutes, setPrayerReminderMinutes] = useState('20');
+  const [pushEnabled, setPushEnabled] = useState(true);
+  const [soundEnabled, setSoundEnabled] = useState(true);
 
-  // État de la liste de courses
-  const [shoppingItems, setShoppingItems] = useState([
-    { id: 1, name: 'Courgettes', tag: 'Repas Tajine', qty: '3 pcs', checked: false },
-    { id: 2, name: 'Pommes Gala bio', tag: 'Peser en balance', qty: '1 kg', checked: false },
-    { id: 3, name: 'Beurre doux de baratte', tag: 'Tartines du matin', qty: '250g', checked: false },
+  // Membres du foyer modifiables
+  const [members, setMembers] = useState<Member[]>([
+    { id: '1', name: 'Adil', role: 'Papa (Admin)', age: 'Adulte', prayerEnabled: true, avatarBg: 'bg-orange-100 text-[#e76f51]' },
+    { id: '2', name: 'Sarah', role: 'Maman', age: 'Adulte', prayerEnabled: true, avatarBg: 'bg-teal-100 text-teal-800' },
+    { id: '3', name: 'Yanis', role: 'Enfant', age: '10 ans', prayerEnabled: false, avatarBg: 'bg-cyan-100 text-cyan-800' },
+    { id: '4', name: 'Lina', role: 'Enfant', age: '7 ans', prayerEnabled: false, avatarBg: 'bg-amber-100 text-amber-800' },
   ]);
-  const [caddieItems, setCaddieItems] = useState([
-    { id: 99, name: 'Épinards frais (500g)', author: 'Pris par Sarah' }
+
+  // Formulaire d'ajout de membre
+  const [showAddMember, setShowAddMember] = useState(false);
+  const [newMemberName, setNewMemberName] = useState('');
+  const [newMemberRole, setNewMemberRole] = useState('Enfant');
+  const [newMemberAge, setNewMemberAge] = useState('');
+  const [newMemberPrayer, setNewMemberPrayer] = useState(false);
+
+  // Liste de courses interactive
+  const [shoppingItems, setShoppingItems] = useState<ShopItem[]>([
+    { id: 's1', name: 'Courgettes', tag: 'Fruits & Légumes (Tajine)', qty: '3 pcs' },
+    { id: 's2', name: 'Pommes Gala bio', tag: 'Fruits & Légumes', qty: '1 kg' },
+    { id: 's3', name: 'Beurre doux de baratte', tag: 'Produits Laitiers', qty: '250g' },
+    { id: 's4', name: 'Pain complet', tag: 'Boulangerie', qty: '1 miche' },
+  ]);
+  const [caddieItems, setCaddieItems] = useState<CaddieItem[]>([
+    { id: 'c1', name: 'Épinards frais (500g)', author: 'Pris par Sarah', time: '15:10' }
+  ]);
+  const [newShopName, setNewShopName] = useState('');
+  const [newShopTag, setNewShopTag] = useState('Fruits & Légumes');
+  const [newShopQty, setNewShopQty] = useState('1');
+
+  // Tâches
+  const [tasks, setTasks] = useState<TaskItem[]>([
+    { id: 't1', title: 'Ranger le lave-vaisselle', subtext: 'Terminée par Yanis à 15:45', assignee: 'Yanis', points: 20, status: 'pending_validation' },
+    { id: 't2', title: 'Ranger la chambre & le bureau', subtext: 'Livres, jouets dans le coffre et lit fait', assignee: 'Yanis', points: 15, status: 'in_progress' },
+    { id: 't3', title: 'Mettre la table pour le dîner', subtext: '4 assiettes, verres et couverts', assignee: 'Lina', points: 10, status: 'to_do' },
   ]);
 
-  const [voiceText, setVoiceText] = useState('');
-  const [isRecording, setIsRecording] = useState(false);
-
-  // Validation parentale
-  const handleValidateTask = (id: number, pts: number) => {
-    setPoints(prev => prev + pts);
-    setValidatedTasks(prev => [...prev, id]);
-  };
-
-  // Cocher un article au magasin
-  const handleToggleShopItem = (item: typeof shoppingItems[0]) => {
-    setShoppingItems(prev => prev.filter(i => i.id !== item.id));
-    setCaddieItems(prev => [{ id: item.id, name: `${item.name} (${item.qty})`, author: "À l'instant" }, ...prev]);
-  };
-
-  // Dictée vocale IA Gemini
-  const handleStartVoice = () => {
-    const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
-    if (!SpeechRecognition) {
-      alert("La reconnaissance vocale n'est pas supportée par ce navigateur.");
-      return;
+  // Chargement / Sauvegarde LocalStorage
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const savedMembers = localStorage.getItem('ff_members');
+      if (savedMembers) setMembers(JSON.parse(savedMembers));
+      const savedFamily = localStorage.getItem('ff_family_name');
+      if (savedFamily) setFamilyName(savedFamily);
+      const savedPoints = localStorage.getItem('ff_points');
+      if (savedPoints) setPoints(Number(savedPoints));
     }
-    const recognition = new SpeechRecognition();
-    recognition.lang = 'fr-FR';
-    setIsRecording(true);
+  }, []);
 
-    recognition.onresult = async (event: any) => {
-      setIsRecording(false);
-      const text = event.results[0][0].transcript;
-      setVoiceText(text);
-      try {
-        const res = await fetch('/api/parse-gemini', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ prompt: text })
-        });
-        if (res.ok) {
-          const data = await res.json();
-          alert(`Gemini a analysé votre demande vocale avec succès !`);
-        }
-      } catch (err) {
-        console.error(err);
-      }
-    };
-
-    recognition.onerror = () => setIsRecording(false);
-    recognition.start();
+  const saveMembers = (updated: Member[]) => {
+    setMembers(updated);
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('ff_members', JSON.stringify(updated));
+    }
   };
 
-  const totalArticles = shoppingItems.length + caddieItems.length;
-  const progressPct = Math.round((caddieItems.length / totalArticles) * 100);
+  // Basculer la prière d'un membre
+  const toggleMemberPrayer = (id: string) => {
+    const updated = members.map(m => m.id === id ? { ...m, prayerEnabled: !m.prayerEnabled } : m);
+    saveMembers(updated);
+  };
+
+  // Supprimer un membre
+  const deleteMember = (id: string) => {
+    if (confirm("Supprimer ce membre du foyer ?")) {
+      const updated = members.filter(m => m.id !== id);
+      saveMembers(updated);
+    }
+  };
+
+  // Ajouter un membre
+  const handleAddMemberSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newMemberName.trim()) return;
+    const colors = ['bg-orange-100 text-[#e76f51]', 'bg-teal-100 text-teal-800', 'bg-purple-100 text-purple-800', 'bg-rose-100 text-rose-800', 'bg-indigo-100 text-indigo-800'];
+    const randomColor = colors[Math.floor(Math.random() * colors.length)];
+    const newM: Member = {
+      id: Date.now().toString(),
+      name: newMemberName.trim(),
+      role: newMemberRole,
+      age: newMemberAge.trim() || undefined,
+      prayerEnabled: newMemberPrayer,
+      avatarBg: randomColor
+    };
+    saveMembers([...members, newM]);
+    setNewMemberName('');
+    setNewMemberAge('');
+    setNewMemberPrayer(false);
+    setShowAddMember(false);
+  };
+
+  // Validation d'une tâche par les parents
+  const validateTask = (id: string, pts: number) => {
+    setPoints(prev => {
+      const np = prev + pts;
+      if (typeof window !== 'undefined') localStorage.setItem('ff_points', np.toString());
+      return np;
+    });
+    setTasks(prev => prev.map(t => t.id === id ? { ...t, status: 'completed' } : t));
+  };
+
+  // Transférer un article au caddie
+  const checkShopItem = (item: ShopItem) => {
+    setShoppingItems(prev => prev.filter(i => i.id !== item.id));
+    setCaddieItems(prev => [{
+      id: item.id,
+      name: `${item.name} (${item.qty})`,
+      author: 'Pris en magasin',
+      time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+    }, ...prev]);
+  };
+
+  // Ajouter un nouvel article de course
+  const handleAddShopItem = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newShopName.trim()) return;
+    setShoppingItems(prev => [...prev, {
+      id: Date.now().toString(),
+      name: newShopName.trim(),
+      tag: newShopTag,
+      qty: newShopQty || '1'
+    }]);
+    setNewShopName('');
+  };
+
+  const totalShop = shoppingItems.length + caddieItems.length;
+  const shopPct = totalShop > 0 ? Math.round((caddieItems.length / totalShop) * 100) : 0;
 
   return (
-    <div className="min-h-screen bg-[#fcf9f2] text-slate-800 flex flex-col font-sans antialiased pb-28 select-none">
+    <div className="min-h-screen bg-[#fcf9f2] text-slate-800 flex flex-col font-sans pb-28 antialiased">
       {/* En-tête Fixe PWA */}
-      <header className="sticky top-0 z-30 bg-[#fcf9f2]/95 backdrop-blur px-5 py-3 border-b border-orange-100 flex items-center justify-between">
+      <header className="sticky top-0 z-30 bg-[#fcf9f2]/95 backdrop-blur px-5 py-3 border-b border-orange-100 flex items-center justify-between shadow-sm">
         <div className="flex items-center gap-2.5">
           <div className="w-8 h-8 rounded-full bg-gradient-to-tr from-amber-500 to-[#e76f51] flex items-center justify-center text-white font-bold shadow-sm">
             <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -81,8 +184,8 @@ export default function DashboardPage() {
           </div>
           <div>
             <h1 className="text-xs font-bold tracking-wider text-[#e76f51] uppercase">FamilyFlow</h1>
-            <p className="text-xs font-semibold text-slate-600 flex items-center gap-1">
-              <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span> Famille El Oualidi
+            <p className="text-xs font-semibold text-slate-600 flex items-center gap-1.5">
+              <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span> {familyName}
             </p>
           </div>
         </div>
@@ -90,28 +193,28 @@ export default function DashboardPage() {
           <span className="px-2.5 py-1 bg-amber-100 text-amber-900 rounded-full text-xs font-bold flex items-center gap-1">
             ⭐ <span>{points}</span> pts
           </span>
-          <div className="w-8 h-8 rounded-full bg-slate-200 border-2 border-white overflow-hidden">
+          <div className="w-8 h-8 rounded-full bg-slate-200 border-2 border-white overflow-hidden shadow-inner">
             <img src="https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=100&auto=format&fit=crop&q=80" alt="Avatar" className="w-full h-full object-cover" />
           </div>
         </div>
       </header>
 
-      {/* Contenu Principal selon l'onglet actif */}
+      {/* Contenu Principal */}
       <main className="flex-1 px-4 py-4 space-y-6">
-        
-        {/* ===================== ONGLET 1 : TÂCHES ===================== */}
+
+        {/* ===================== 1. TÂCHES ===================== */}
         {activeTab === 'tasks' && (
           <section className="space-y-5">
-            {/* Rappel Prière */}
+            {/* Rappel Prochaine Prière */}
             <div className="bg-gradient-to-r from-orange-50 to-amber-50 border border-orange-200/80 rounded-2xl p-4 flex items-center justify-between shadow-sm">
               <div className="flex items-center gap-3">
                 <div className="w-10 h-10 rounded-xl bg-orange-100 flex items-center justify-center text-xl">🌅</div>
                 <div>
                   <span className="text-[11px] font-bold uppercase tracking-wider text-orange-700 bg-orange-200/60 px-2 py-0.5 rounded-full">
-                    Dans 15 min • 16:15
+                    Dans {prayerReminderMinutes} min • 16:15
                   </span>
                   <h3 className="font-bold text-slate-900 mt-1">Salât Al-Asr en famille</h3>
-                  <p className="text-xs text-slate-500">Préparation des ablutions ensemble</p>
+                  <p className="text-xs text-slate-500">Membres notifiés : {members.filter(m => m.prayerEnabled).map(m => m.name).join(', ')}</p>
                 </div>
               </div>
               <button onClick={() => alert('Rappel confirmé pour le foyer !')} className="px-3.5 py-2 bg-teal-700 text-white rounded-xl text-xs font-bold shadow hover:bg-teal-800 transition">
@@ -121,281 +224,411 @@ export default function DashboardPage() {
 
             {/* Filtres Membres */}
             <div className="flex gap-2 overflow-x-auto pb-1 text-xs">
-              <button className="px-3.5 py-1.5 bg-[#e76f51] text-white font-bold rounded-full shadow-sm whitespace-nowrap">Toute la famille (4)</button>
-              <button className="px-3.5 py-1.5 bg-white border border-slate-200 text-slate-600 font-semibold rounded-full whitespace-nowrap">
-                Yanis (10 ans) <span className="bg-orange-100 text-[#e76f51] px-1.5 rounded-full text-[10px]">2</span>
+              <button className="px-3.5 py-1.5 bg-[#e76f51] text-white font-bold rounded-full shadow-sm whitespace-nowrap">
+                Toute la famille ({members.length})
               </button>
-              <button className="px-3.5 py-1.5 bg-white border border-slate-200 text-slate-600 font-semibold rounded-full whitespace-nowrap">Lina (7 ans)</button>
+              {members.map(m => (
+                <button key={m.id} className="px-3.5 py-1.5 bg-white border border-slate-200 text-slate-600 font-semibold rounded-full whitespace-nowrap hover:bg-orange-50 transition">
+                  {m.name} {m.age ? `(${m.age})` : ''}
+                </button>
+              ))}
             </div>
 
-            {/* Espace Parents : Validation Parentale */}
+            {/* Validation Parentale */}
             <div className="bg-white rounded-2xl p-4 border border-orange-100 shadow-sm space-y-3">
               <div className="flex items-center justify-between">
                 <h2 className="text-sm font-bold text-slate-900 flex items-center gap-1.5">
                   <span className="w-2 h-2 rounded-full bg-rose-500"></span> Validation Parentale
                   <span className="text-xs text-rose-600 bg-rose-50 px-2 py-0.5 rounded-full font-bold">
-                    {validatedTasks.includes(1) ? '0 en attente' : '1 en attente'}
+                    {tasks.filter(t => t.status === 'pending_validation').length} en attente
                   </span>
                 </h2>
                 <span className="text-[11px] text-slate-400 font-medium">Espace Parents</span>
               </div>
 
-              {!validatedTasks.includes(1) ? (
-                <div className="p-3 bg-orange-50/40 rounded-xl border border-orange-100 space-y-3">
-                  <div className="flex items-start justify-between">
-                    <div className="flex items-center gap-2">
-                      <div className="w-8 h-8 rounded-full bg-cyan-100 text-cyan-800 flex items-center justify-center font-bold text-xs">Y</div>
-                      <div>
-                        <h4 className="text-xs font-bold text-slate-900">Ranger le lave-vaisselle</h4>
-                        <p className="text-[11px] text-slate-500">Terminée par Yanis à 15:45</p>
-                      </div>
-                    </div>
-                    <span className="text-xs font-bold text-amber-700 bg-amber-100 px-2 py-0.5 rounded-full">+20 pts</span>
-                  </div>
-                  <div className="flex gap-2 pt-1">
-                    <button onClick={() => alert('Renvoyé pour révision !')} className="flex-1 py-2 bg-slate-100 text-slate-700 text-xs font-bold rounded-lg">À corriger</button>
-                    <button onClick={() => handleValidateTask(1, 20)} className="flex-1 py-2 bg-[#e76f51] hover:bg-orange-600 text-white text-xs font-bold rounded-lg shadow-sm">
-                      Valider (+20 pts)
-                    </button>
-                  </div>
+              {tasks.filter(t => t.status === 'pending_validation').length === 0 ? (
+                <div className="p-3 bg-slate-50 rounded-xl text-center text-xs text-slate-500">
+                  🎉 Aucune validation en attente. Tout est à jour !
                 </div>
               ) : (
-                <div className="p-3 bg-emerald-50 rounded-xl text-xs font-bold text-emerald-700 flex items-center gap-2">
-                  <span>✓</span> Tâche de Yanis validée et 20 pts crédités !
-                </div>
+                tasks.filter(t => t.status === 'pending_validation').map(t => (
+                  <div key={t.id} className="p-3 bg-orange-50/40 rounded-xl border border-orange-100 space-y-3">
+                    <div className="flex items-start justify-between">
+                      <div className="flex items-center gap-2">
+                        <div className="w-8 h-8 rounded-full bg-cyan-100 text-cyan-800 flex items-center justify-center font-bold text-xs">
+                          {t.assignee.charAt(0)}
+                        </div>
+                        <div>
+                          <h4 className="text-xs font-bold text-slate-900">{t.title}</h4>
+                          <p className="text-[11px] text-slate-500">{t.subtext}</p>
+                        </div>
+                      </div>
+                      <span className="text-xs font-bold text-amber-700 bg-amber-100 px-2 py-0.5 rounded-full">+{t.points} pts</span>
+                    </div>
+                    <div className="flex gap-2 pt-1">
+                      <button onClick={() => alert('Demande retournée à l\'enfant pour révision')} className="flex-1 py-2 bg-slate-100 text-slate-700 text-xs font-bold rounded-lg hover:bg-slate-200 transition">
+                        À corriger
+                      </button>
+                      <button onClick={() => validateTask(t.id, t.points)} className="flex-1 py-2 bg-[#e76f51] hover:bg-orange-600 text-white text-xs font-bold rounded-lg shadow-sm transition">
+                        Valider (+{t.points} pts)
+                      </button>
+                    </div>
+                  </div>
+                ))
               )}
             </div>
 
-            {/* Tâche en cours */}
+            {/* Tâches En cours */}
             <div className="bg-white rounded-2xl p-4 border border-orange-100 shadow-sm space-y-3">
-              <div className="flex items-center justify-between">
-                <h2 className="text-sm font-bold text-slate-900 flex items-center gap-1.5">
-                  <span className="w-2 h-2 rounded-full bg-emerald-500"></span> En cours (1 active)
-                </h2>
-                <span className="text-[11px] text-emerald-600 font-medium">Chronomètre actif</span>
-              </div>
-              <div className="p-3 bg-emerald-50/40 rounded-xl border border-emerald-100 space-y-3">
-                <div className="flex items-center justify-between text-xs">
-                  <span className="font-bold text-emerald-800">En cours (18 min)</span>
-                  <span className="text-slate-500">Chambre</span>
-                </div>
-                <h4 className="font-bold text-slate-900 text-sm">Ranger la chambre & le bureau</h4>
-                <p className="text-xs text-slate-500">Livres, jouets dans le coffre et lit fait</p>
-                <div className="w-full bg-slate-200 h-1.5 rounded-full overflow-hidden">
-                  <div className="bg-emerald-500 h-full w-3/4"></div>
-                </div>
-                <button onClick={() => alert('Demande de validation transmise aux parents !')} className="w-full py-2.5 bg-[#e76f51] text-white text-xs font-bold rounded-xl shadow">
-                  ✓ J'ai terminé ! (Envoyer aux parents)
-                </button>
-              </div>
-            </div>
-          </section>
-        )}
-
-        {/* ===================== ONGLET 2 : COURSES ===================== */}
-        {activeTab === 'shopping' && (
-          <section className="space-y-5">
-            <div className="bg-emerald-50 border border-emerald-200 rounded-xl p-2.5 px-3.5 flex items-center justify-between text-xs text-emerald-800">
-              <div className="flex items-center gap-2">
-                <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
-                <span className="font-bold">Mode Magasin actif</span> • Sync temps réel
-              </div>
-              <span className="font-semibold text-[11px]">⚡ En direct</span>
-            </div>
-
-            {/* Jauge Caddie */}
-            <div className="bg-white rounded-2xl p-4 border border-orange-100 shadow-sm space-y-3">
-              <div className="flex justify-between items-baseline">
-                <div>
-                  <h3 className="font-bold text-slate-900 text-sm">Progression du caddie</h3>
-                  <p className="text-xs text-slate-500">{caddieItems.length} sur {totalArticles} articles pris</p>
-                </div>
-                <span className="text-xl font-black text-teal-700">{progressPct}%</span>
-              </div>
-              <div className="w-full bg-slate-100 h-2 rounded-full overflow-hidden">
-                <div className="bg-teal-600 h-full transition-all duration-300" style={{ width: `${progressPct}%` }}></div>
-              </div>
-            </div>
-
-            {/* Rayons & Articles à prendre */}
-            <div className="space-y-3">
-              <h4 className="text-xs font-bold text-slate-700 uppercase tracking-wider">Articles restants ({shoppingItems.length})</h4>
-              {shoppingItems.map(item => (
-                <div
-                  key={item.id}
-                  onClick={() => handleToggleShopItem(item)}
-                  className="p-3.5 bg-white border border-slate-200/80 rounded-xl flex items-center justify-between cursor-pointer hover:border-[#e76f51] transition shadow-sm"
-                >
-                  <div className="flex items-center gap-3">
-                    <div className="w-6 h-6 rounded-full border-2 border-slate-300 flex items-center justify-center"></div>
+              <h2 className="text-sm font-bold text-slate-900 flex items-center gap-1.5">
+                <span className="w-2 h-2 rounded-full bg-emerald-500"></span> En cours & À faire
+              </h2>
+              <div className="space-y-2.5">
+                {tasks.filter(t => t.status !== 'pending_validation').map(t => (
+                  <div key={t.id} className="p-3 bg-slate-50 rounded-xl border border-slate-200/80 flex items-center justify-between">
                     <div>
-                      <div className="font-bold text-sm text-slate-900">{item.name}</div>
-                      <div className="text-[11px] text-orange-600 bg-orange-50 px-1.5 py-0.5 rounded inline-block font-semibold">{item.tag}</div>
+                      <div className="text-[11px] font-semibold text-slate-500">{t.assignee} • +{t.points} pts</div>
+                      <div className="font-bold text-slate-900 text-sm">{t.title}</div>
+                      <div className="text-xs text-slate-400">{t.subtext}</div>
                     </div>
-                  </div>
-                  <span className="text-xs font-semibold text-slate-500 bg-slate-100 px-2 py-1 rounded-lg">{item.qty}</span>
-                </div>
-              ))}
-            </div>
-
-            {/* Déjà dans le caddie */}
-            <div className="bg-slate-50 border border-slate-200 rounded-2xl p-4 space-y-3">
-              <div className="flex items-center justify-between text-xs font-bold text-slate-700">
-                <span className="flex items-center gap-1.5"><span className="text-teal-600 font-black">✓</span> Déjà dans le caddie</span>
-                <span className="text-slate-400">{caddieItems.length} article(s)</span>
-              </div>
-              <div className="space-y-2">
-                {caddieItems.map(item => (
-                  <div key={item.id} className="p-2.5 bg-white border border-slate-200 rounded-lg flex items-center justify-between opacity-80">
-                    <div className="flex items-center gap-2">
-                      <span className="w-4 h-4 rounded-full bg-teal-600 text-white text-[10px] flex items-center justify-center font-bold">✓</span>
-                      <span className="text-xs line-through text-slate-500">{item.name}</span>
-                    </div>
-                    <span className="text-[11px] text-slate-400">{item.author}</span>
+                    {t.status === 'completed' ? (
+                      <span className="text-xs font-bold text-emerald-700 bg-emerald-100 px-2.5 py-1 rounded-lg">✓ Validé</span>
+                    ) : (
+                      <button onClick={() => alert('Tâche terminée, envoyée aux parents !')} className="px-3 py-1.5 bg-[#e76f51] text-white text-xs font-bold rounded-xl shadow hover:bg-orange-600">
+                        Terminé
+                      </button>
+                    )}
                   </div>
                 ))}
               </div>
             </div>
+          </section>
+        )}
 
-            {/* Ajout Vocal IA Gemini */}
-            <div className="bg-white border-2 border-orange-200 rounded-2xl p-4 shadow-sm space-y-3">
-              <div className="flex items-center justify-between">
-                <h4 className="text-xs font-bold text-slate-900 flex items-center gap-1.5">🛒 Ajout vocal express (IA Gemini)</h4>
-                <span className="text-[10px] bg-emerald-100 text-emerald-800 font-bold px-2 py-0.5 rounded-full">Actif 0€</span>
+        {/* ===================== 2. COURSES ===================== */}
+        {activeTab === 'shopping' && (
+          <section className="space-y-5">
+            {/* Barre de progression */}
+            <div className="bg-white rounded-2xl p-4 border border-orange-100 shadow-sm space-y-3">
+              <div className="flex justify-between items-baseline">
+                <div>
+                  <h3 className="font-bold text-slate-900 text-sm">Progression du caddie</h3>
+                  <p className="text-xs text-slate-500">{caddieItems.length} sur {totalShop} articles pris</p>
+                </div>
+                <span className="text-xl font-black text-teal-700">{shopPct}%</span>
               </div>
-              <div className="flex gap-2">
+              <div className="w-full bg-slate-100 h-2 rounded-full overflow-hidden">
+                <div className="bg-teal-600 h-full transition-all duration-300" style={{ width: `${shopPct}%` }}></div>
+              </div>
+            </div>
+
+            {/* Formulaire d'ajout rapide d'un article */}
+            <form onSubmit={handleAddShopItem} className="bg-white rounded-2xl p-4 border border-orange-100 shadow-sm space-y-3">
+              <h4 className="text-xs font-bold text-slate-800 uppercase tracking-wider">➕ Ajouter un article à la liste</h4>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-2 text-xs">
                 <input
                   type="text"
-                  value={voiceText}
-                  onChange={(e) => setVoiceText(e.target.value)}
-                  placeholder="Ex: 1kg de bananes, café moulu, 6 œufs..."
-                  className="flex-1 text-xs px-3 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:border-[#e76f51]"
+                  placeholder="Nom de l'article (ex: Bananes, Yaourts...)"
+                  value={newShopName}
+                  onChange={e => setNewShopName(e.target.value)}
+                  className="p-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:border-[#e76f51] focus:outline-none col-span-2"
                 />
-                <button
-                  onClick={handleStartVoice}
-                  className={`w-10 h-10 rounded-xl flex items-center justify-center text-white shadow transition ${isRecording ? 'bg-rose-500 animate-pulse' : 'bg-[#e76f51] hover:bg-orange-600'}`}
-                >
-                  🎤
-                </button>
+                <div className="flex gap-2">
+                  <input
+                    type="text"
+                    placeholder="Qté (ex: 500g)"
+                    value={newShopQty}
+                    onChange={e => setNewShopQty(e.target.value)}
+                    className="w-20 p-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:border-[#e76f51] focus:outline-none"
+                  />
+                  <button type="submit" className="flex-1 bg-[#e76f51] hover:bg-orange-600 text-white font-bold rounded-xl py-2 shadow-sm transition">
+                    Ajouter
+                  </button>
+                </div>
               </div>
-              <p className="text-[11px] text-slate-500">Dictée convertie et classée automatiquement en rayon par Gemini.</p>
+            </form>
+
+            {/* Articles à prendre */}
+            <div className="space-y-3">
+              <h4 className="text-xs font-bold text-slate-700 uppercase tracking-wider">Articles en rayon ({shoppingItems.length})</h4>
+              {shoppingItems.length === 0 ? (
+                <div className="p-4 bg-emerald-50 text-emerald-800 rounded-xl text-center text-xs font-bold">
+                  ✓ Tous les articles sont dans le caddie ! Prêt pour la caisse.
+                </div>
+              ) : (
+                shoppingItems.map(item => (
+                  <div
+                    key={item.id}
+                    onClick={() => checkShopItem(item)}
+                    className="p-3.5 bg-white border border-slate-200/80 rounded-xl flex items-center justify-between cursor-pointer hover:border-[#e76f51] shadow-sm transition"
+                  >
+                    <div className="flex items-center gap-3">
+                      <div className="w-6 h-6 rounded-full border-2 border-slate-300 flex items-center justify-center hover:border-teal-600 transition"></div>
+                      <div>
+                        <div className="font-bold text-sm text-slate-900">{item.name}</div>
+                        <div className="text-[11px] text-orange-600 bg-orange-50 px-1.5 py-0.5 rounded inline-block font-semibold">{item.tag}</div>
+                      </div>
+                    </div>
+                    <span className="text-xs font-semibold text-slate-500 bg-slate-100 px-2 py-1 rounded-lg">{item.qty}</span>
+                  </div>
+                ))
+              )}
+            </div>
+
+            {/* Articles déjà dans le panier */}
+            <div className="bg-slate-50 border border-slate-200 rounded-2xl p-4 space-y-3">
+              <div className="flex items-center justify-between text-xs font-bold text-slate-700">
+                <span className="flex items-center gap-1.5"><span className="text-teal-600 font-black">✓</span> Dans le caddie</span>
+                <span className="text-slate-400">{caddieItems.length} article(s)</span>
+              </div>
+              <div className="space-y-2">
+                {caddieItems.map(c => (
+                  <div key={c.id} className="p-2.5 bg-white border border-slate-200 rounded-lg flex items-center justify-between opacity-80">
+                    <div className="flex items-center gap-2">
+                      <span className="w-4 h-4 rounded-full bg-teal-600 text-white text-[10px] flex items-center justify-center font-bold">✓</span>
+                      <span className="text-xs line-through text-slate-500">{c.name}</span>
+                    </div>
+                    <span className="text-[11px] text-slate-400">{c.author}</span>
+                  </div>
+                ))}
+              </div>
             </div>
           </section>
         )}
 
-        {/* ===================== ONGLET 3 : PRIÈRES ===================== */}
+        {/* ===================== 3. PRIÈRES ===================== */}
         {activeTab === 'prayers' && (
           <section className="space-y-4">
             <div className="bg-white rounded-2xl p-4 border border-orange-100 shadow-sm">
               <h2 className="text-sm font-bold text-slate-900 mb-1">Horaires des Prières • Paris</h2>
-              <p className="text-xs text-slate-500 mb-4">Calcul officiel UOIF 15° • Rappel sonore 20 min avant</p>
+              <p className="text-xs text-slate-500 mb-4">Calcul officiel UOIF 15° • Rappel sonore {prayerReminderMinutes} min avant</p>
               <div className="space-y-2 text-xs">
-                <div className="flex justify-between items-center p-2.5 rounded-xl bg-slate-50">
-                  <span className="font-medium">Fajr (Aube)</span>
-                  <span className="font-bold text-slate-700">06:12</span>
-                </div>
-                <div className="flex justify-between items-center p-2.5 rounded-xl bg-slate-50">
-                  <span className="font-medium">Dhuhr (Midi)</span>
-                  <span className="font-bold text-slate-700">13:30</span>
-                </div>
-                <div className="flex justify-between items-center p-2.5 rounded-xl bg-orange-100 border border-orange-300 font-bold text-orange-950">
-                  <span>Asr (Après-midi) • Prochaine prière</span>
-                  <span>16:15</span>
-                </div>
-                <div className="flex justify-between items-center p-2.5 rounded-xl bg-slate-50">
-                  <span className="font-medium">Maghrib (Coucher)</span>
-                  <span className="font-bold text-slate-700">18:45</span>
-                </div>
-                <div className="flex justify-between items-center p-2.5 rounded-xl bg-slate-50">
-                  <span className="font-medium">Isha (Nuit)</span>
-                  <span className="font-bold text-slate-700">20:10</span>
-                </div>
+                {[
+                  { name: 'Fajr (Aube)', time: '06:12', active: false },
+                  { name: 'Dhuhr (Midi)', time: '13:30', active: false },
+                  { name: 'Asr (Après-midi)', time: '16:15', active: true },
+                  { name: 'Maghrib (Coucher)', time: '18:45', active: false },
+                  { name: 'Isha (Nuit)', time: '20:10', active: false },
+                ].map(p => (
+                  <div key={p.name} className={`flex justify-between items-center p-3 rounded-xl transition ${p.active ? 'bg-orange-100 border border-orange-300 font-bold text-orange-950' : 'bg-slate-50 text-slate-700'}`}>
+                    <span>{p.name} {p.active ? '• Prochaine prière' : ''}</span>
+                    <span className="text-sm font-bold">{p.time}</span>
+                  </div>
+                ))}
               </div>
             </div>
           </section>
         )}
 
-        {/* ===================== ONGLET 4 : FOYER & MEMBRES ===================== */}
+        {/* ===================== 4. FOYER & MEMBRES (MODIFIABLE !) ===================== */}
         {activeTab === 'foyer' && (
-          <section className="space-y-4">
+          <section className="space-y-5">
+            {/* Code Foyer */}
             <div className="bg-white rounded-2xl p-4 border border-orange-100 shadow-sm space-y-3">
-              <h2 className="text-sm font-bold text-slate-900">Liaison du Foyer & Synchronisation</h2>
+              <h2 className="text-sm font-bold text-slate-900">Liaison du Foyer</h2>
               <div className="p-3 bg-amber-50 rounded-xl border border-amber-200 flex items-center justify-between">
                 <div>
-                  <div className="text-[10px] uppercase font-bold text-amber-800">Code Foyer Unique</div>
-                  <div className="text-base font-black text-slate-900 tracking-wider">FLOW-9824</div>
+                  <div className="text-[10px] uppercase font-bold text-amber-800">Code Foyer de synchronisation</div>
+                  <div className="text-base font-black text-slate-900 tracking-wider">{foyerCode}</div>
                 </div>
-                <button onClick={() => { navigator.clipboard.writeText('FLOW-9824'); alert('Code copié !'); }} className="px-3 py-1.5 bg-amber-600 text-white rounded-lg text-xs font-bold">
-                  Copier
-                </button>
+                <div className="flex gap-2">
+                  <button onClick={() => { setFoyerCode('FLOW-' + Math.floor(1000 + Math.random() * 9000)); }} className="px-2.5 py-1.5 bg-amber-100 text-amber-800 rounded-lg text-xs font-bold hover:bg-amber-200">
+                    🔄 Régénérer
+                  </button>
+                  <button onClick={() => { navigator.clipboard.writeText(foyerCode); alert('Code foyer copié ! Partagez-le avec vos proches.'); }} className="px-3 py-1.5 bg-amber-600 text-white rounded-lg text-xs font-bold shadow-sm">
+                    Copier
+                  </button>
+                </div>
               </div>
-              <p className="text-xs text-slate-500">Transmettez ce code aux membres pour synchroniser leurs smartphones.</p>
+              <p className="text-xs text-slate-500">Chaque membre saisit ce code sur son téléphone pour rejoindre ce tableau de bord.</p>
             </div>
 
-            <div className="bg-white rounded-2xl p-4 border border-orange-100 shadow-sm space-y-3">
-              <h3 className="text-xs font-bold text-slate-800 uppercase">Membres et Préférences Prières</h3>
-              <div className="flex items-center justify-between p-2.5 border-b border-slate-100 text-xs">
-                <div className="flex items-center gap-2">
-                  <div className="w-7 h-7 rounded-full bg-orange-100 text-[#e76f51] flex items-center justify-center font-bold">A</div>
-                  <div>
-                    <div className="font-bold text-slate-900">Adil (Papa)</div>
-                    <div className="text-[10px] text-slate-400">Admin du foyer</div>
-                  </div>
+            {/* Liste des membres avec gestion interactive */}
+            <div className="bg-white rounded-2xl p-4 border border-orange-100 shadow-sm space-y-4">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h3 className="text-sm font-bold text-slate-800">Membres du Foyer ({members.length})</h3>
+                  <p className="text-xs text-slate-400">Activez ou désactivez les rappels de prière par personne</p>
                 </div>
-                <span className="text-[11px] font-bold text-teal-700 bg-teal-50 px-2 py-0.5 rounded-full">Prière Active</span>
+                <button
+                  onClick={() => setShowAddMember(!showAddMember)}
+                  className="px-3 py-1.5 bg-[#e76f51] text-white text-xs font-bold rounded-xl shadow-sm hover:bg-orange-600 transition flex items-center gap-1"
+                >
+                  {showAddMember ? '✕ Fermer' : '➕ Nouveau membre'}
+                </button>
               </div>
-              <div className="flex items-center justify-between p-2.5 border-b border-slate-100 text-xs">
-                <div className="flex items-center gap-2">
-                  <div className="w-7 h-7 rounded-full bg-teal-100 text-teal-800 flex items-center justify-center font-bold">S</div>
-                  <div>
-                    <div className="font-bold text-slate-900">Sarah (Maman)</div>
-                    <div className="text-[10px] text-slate-400">Parent</div>
+
+              {/* Formulaire d'ajout d'un membre */}
+              {showAddMember && (
+                <form onSubmit={handleAddMemberSubmit} className="p-3.5 bg-orange-50/50 border border-orange-200 rounded-xl space-y-3 text-xs">
+                  <h4 className="font-bold text-slate-900">Ajouter une personne au foyer</h4>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                    <input
+                      type="text"
+                      required
+                      placeholder="Prénom (ex: Mohamed, Lina...)"
+                      value={newMemberName}
+                      onChange={e => setNewMemberName(e.target.value)}
+                      className="p-2.5 bg-white border border-slate-200 rounded-lg focus:border-[#e76f51] focus:outline-none"
+                    />
+                    <div className="flex gap-2">
+                      <select
+                        value={newMemberRole}
+                        onChange={e => setNewMemberRole(e.target.value)}
+                        className="p-2.5 bg-white border border-slate-200 rounded-lg flex-1 focus:border-[#e76f51] focus:outline-none"
+                      >
+                        <option value="Parent">Parent</option>
+                        <option value="Enfant">Enfant</option>
+                        <option value="Autre">Autre</option>
+                      </select>
+                      <input
+                        type="text"
+                        placeholder="Âge (optionnel)"
+                        value={newMemberAge}
+                        onChange={e => setNewMemberAge(e.target.value)}
+                        className="w-24 p-2.5 bg-white border border-slate-200 rounded-lg focus:border-[#e76f51] focus:outline-none"
+                      />
+                    </div>
                   </div>
-                </div>
-                <span className="text-[11px] font-bold text-teal-700 bg-teal-50 px-2 py-0.5 rounded-full">Prière Active</span>
-              </div>
-              <div className="flex items-center justify-between p-2.5 text-xs">
-                <div className="flex items-center gap-2">
-                  <div className="w-7 h-7 rounded-full bg-cyan-100 text-cyan-800 flex items-center justify-center font-bold">Y</div>
-                  <div>
-                    <div className="font-bold text-slate-900">Yanis (10 ans)</div>
-                    <div className="text-[10px] text-slate-400">Enfant • Prière non requise</div>
+                  <div className="flex items-center justify-between pt-1">
+                    <label className="flex items-center gap-2 cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={newMemberPrayer}
+                        onChange={e => setNewMemberPrayer(e.target.checked)}
+                        className="accent-[#e76f51] w-4 h-4 rounded"
+                      />
+                      <span className="font-semibold text-slate-700">Activer les rappels de prière pour ce membre</span>
+                    </label>
+                    <button type="submit" className="px-4 py-2 bg-[#e76f51] text-white font-bold rounded-lg shadow hover:bg-orange-600 transition">
+                      Enregistrer le membre
+                    </button>
                   </div>
-                </div>
-                <span className="text-[11px] font-bold text-slate-400 bg-slate-100 px-2 py-0.5 rounded-full">Désactivée</span>
+                </form>
+              )}
+
+              {/* Liste réelle des membres avec toggles */}
+              <div className="divide-y divide-slate-100">
+                {members.map(member => (
+                  <div key={member.id} className="py-3 flex items-center justify-between text-xs">
+                    <div className="flex items-center gap-3">
+                      <div className={`w-8 h-8 rounded-full ${member.avatarBg} flex items-center justify-center font-bold text-xs shadow-sm`}>
+                        {member.name.charAt(0)}
+                      </div>
+                      <div>
+                        <div className="font-bold text-slate-900 flex items-center gap-2">
+                          {member.name}
+                          {member.age && <span className="text-[10px] font-normal text-slate-500">({member.age})</span>}
+                        </div>
+                        <div className="text-[11px] text-slate-400">{member.role}</div>
+                      </div>
+                    </div>
+
+                    <div className="flex items-center gap-3">
+                      {/* Interrupteur Prière */}
+                      <button
+                        onClick={() => toggleMemberPrayer(member.id)}
+                        className={`px-3 py-1 rounded-full font-bold text-[11px] transition flex items-center gap-1.5 ${member.prayerEnabled ? 'bg-teal-100 text-teal-800' : 'bg-slate-100 text-slate-400'}`}
+                      >
+                        <span className={`w-2 h-2 rounded-full ${member.prayerEnabled ? 'bg-teal-600 animate-pulse' : 'bg-slate-300'}`}></span>
+                        {member.prayerEnabled ? 'Prière Active' : 'Prière Désactivée'}
+                      </button>
+
+                      {/* Bouton supprimer */}
+                      <button
+                        onClick={() => deleteMember(member.id)}
+                        title="Supprimer"
+                        className="text-slate-300 hover:text-rose-500 p-1 transition"
+                      >
+                        🗑️
+                      </button>
+                    </div>
+                  </div>
+                ))}
               </div>
             </div>
           </section>
         )}
 
-        {/* ===================== ONGLET 5 : PARAMÈTRES ===================== */}
+        {/* ===================== 5. PARAMÈTRES (MODIFIABLE !) ===================== */}
         {activeTab === 'settings' && (
           <section className="space-y-4">
-            <div className="bg-white rounded-2xl p-4 border border-orange-100 shadow-sm space-y-3">
-              <h2 className="text-sm font-bold text-slate-900">Paramètres & PWA</h2>
-              <div className="flex items-center justify-between p-3 bg-slate-50 rounded-xl text-xs">
-                <div>
-                  <div className="font-bold text-slate-800">Version installée</div>
-                  <div className="text-slate-500">v2.5.0 (Cloudflare Pages)</div>
+            <div className="bg-white rounded-2xl p-4 border border-orange-100 shadow-sm space-y-4">
+              <h2 className="text-sm font-bold text-slate-900">Paramètres du Foyer & Application</h2>
+              
+              {/* Modification du nom du foyer */}
+              <div className="space-y-1 text-xs">
+                <label className="font-bold text-slate-700">Nom du Foyer affiché :</label>
+                <div className="flex gap-2">
+                  <input
+                    type="text"
+                    value={familyName}
+                    onChange={e => {
+                      setFamilyName(e.target.value);
+                      if (typeof window !== 'undefined') localStorage.setItem('ff_family_name', e.target.value);
+                    }}
+                    className="flex-1 p-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:border-[#e76f51] focus:outline-none font-semibold text-slate-800"
+                  />
                 </div>
-                <span className="px-2.5 py-1 bg-emerald-100 text-emerald-800 font-bold rounded-lg text-[10px]">À jour</span>
               </div>
-              <div className="space-y-3 pt-2 text-xs">
+
+              {/* Réglage des rappels de prière */}
+              <div className="space-y-1 text-xs pt-2">
+                <label className="font-bold text-slate-700">Délai du rappel avant la prière :</label>
+                <select
+                  value={prayerReminderMinutes}
+                  onChange={e => setPrayerReminderMinutes(e.target.value)}
+                  className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:border-[#e76f51] focus:outline-none"
+                >
+                  <option value="10">10 minutes avant</option>
+                  <option value="15">15 minutes avant</option>
+                  <option value="20">20 minutes avant (Recommandé)</option>
+                  <option value="30">30 minutes avant</option>
+                </select>
+              </div>
+
+              {/* Alertes & Notifications */}
+              <div className="space-y-3 pt-3 border-t border-slate-100 text-xs">
                 <div className="flex items-center justify-between">
-                  <span className="font-medium text-slate-800">Notifications Push PWA</span>
-                  <input type="checkbox" defaultChecked className="accent-[#e76f51] w-4 h-4" />
+                  <div>
+                    <div className="font-bold text-slate-800">Notifications Push PWA</div>
+                    <div className="text-slate-400">Rappels en veille sur smartphone</div>
+                  </div>
+                  <input
+                    type="checkbox"
+                    checked={pushEnabled}
+                    onChange={e => setPushEnabled(e.target.checked)}
+                    className="accent-[#e76f51] w-4 h-4 cursor-pointer"
+                  />
                 </div>
                 <div className="flex items-center justify-between">
-                  <span className="font-medium text-slate-800">Rappels 20 min avant la prière</span>
-                  <input type="checkbox" defaultChecked className="accent-[#e76f51] w-4 h-4" />
+                  <div>
+                    <div className="font-bold text-slate-800">Signal sonore / Vibreur</div>
+                    <div className="text-slate-400">Lors des rappels de routine</div>
+                  </div>
+                  <input
+                    type="checkbox"
+                    checked={soundEnabled}
+                    onChange={e => setSoundEnabled(e.target.checked)}
+                    className="accent-[#e76f51] w-4 h-4 cursor-pointer"
+                  />
                 </div>
+              </div>
+
+              {/* Version & Statut */}
+              <div className="p-3 bg-slate-50 rounded-xl flex items-center justify-between text-xs mt-3">
+                <div>
+                  <div className="font-bold text-slate-800">Déploiement Cloudflare Pages</div>
+                  <div className="text-slate-500">Mode PWA Connecté</div>
+                </div>
+                <span className="px-2.5 py-1 bg-emerald-100 text-emerald-800 font-bold rounded-lg text-[10px]">Opérationnel</span>
               </div>
             </div>
           </section>
         )}
       </main>
 
-      {/* Barre de navigation inférieure fixe (5 onglets) */}
+      {/* Barre de navigation inférieure (5 onglets réactifs) */}
       <nav className="fixed bottom-0 left-0 right-0 bg-white/95 backdrop-blur border-t border-slate-200/80 px-2 py-2 flex justify-around items-center z-40 shadow-lg">
         <button
           onClick={() => setActiveTab('tasks')}
@@ -435,4 +668,3 @@ export default function DashboardPage() {
       </nav>
     </div>
   );
-}
