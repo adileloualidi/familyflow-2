@@ -1,174 +1,121 @@
-"use client";
+'use client';
 
-import { useState } from "react";
-import { useRouter } from "next/navigation";
-import { useAuth } from "@/context/AuthContext";
-import { FirebaseError } from "firebase/app";
-
-const HIGHLIGHTS = [
-  { icon: "✅", title: "Les taches", text: "Reparties, suivies, validees — et recompensees en points." },
-  { icon: "🍽️", title: "Les repas", text: "Planifie la semaine, les ingredients filent dans les courses." },
-  { icon: "📦", title: "Le stock", text: "Dis simplement ce qui manque, l'assistant met tout a jour." },
-];
+import React, { useState } from 'react';
+import { useRouter } from 'next/navigation';
 
 export default function LoginPage() {
-  const { signIn, signUpWithFamily } = useAuth();
   const router = useRouter();
-  const [mode, setMode] = useState<"signin" | "signup">("signin");
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
-  const [familyName, setFamilyName] = useState("");
-  const [adminName, setAdminName] = useState("");
-  const [error, setError] = useState<string | null>(null);
-  const [busy, setBusy] = useState(false);
+  const [mode, setMode] = useState<'choice' | 'join'>('choice');
+  const [foyerCode, setFoyerCode] = useState('');
+  const [selectedMember, setSelectedMember] = useState<string | null>(null);
 
-  function friendlyError(e: unknown): string {
-    if (e instanceof FirebaseError) {
-      switch (e.code) {
-        case "auth/invalid-credential":
-        case "auth/wrong-password":
-        case "auth/user-not-found":
-          return "Email ou mot de passe incorrect.";
-        case "auth/email-already-in-use":
-          return "Un compte existe deja avec cet email.";
-        case "auth/weak-password":
-          return "Le mot de passe doit contenir au moins 6 caracteres.";
-        case "auth/invalid-api-key":
-        case "auth/api-key-not-valid.-please-pass-a-valid-api-key.":
-          return "Configuration Firebase manquante ou invalide.";
-        default:
-          return "Erreur : " + e.message;
-      }
-    }
-    return "Une erreur est survenue.";
-  }
+  // Membres récupérés pour ce code de foyer
+  const dummyMembers = [
+    { id: '1', name: 'Adil', role: 'Papa (Admin)', avatar: 'bg-orange-100 text-[#e76f51]' },
+    { id: '2', name: 'Sarah', role: 'Maman', avatar: 'bg-teal-100 text-teal-800' },
+    { id: '3', name: 'Yanis', role: 'Enfant (10 ans)', avatar: 'bg-cyan-100 text-cyan-800' },
+    { id: '4', name: 'Lina', role: 'Enfant (7 ans)', avatar: 'bg-amber-100 text-amber-800' },
+  ];
 
-  async function handleSubmit(e: React.FormEvent) {
-    e.preventDefault();
-    setError(null);
-    setBusy(true);
-    try {
-      if (mode === "signin") {
-        await signIn(email, password);
-      } else {
-        if (!familyName.trim() || !adminName.trim()) {
-          setError("Merci de renseigner le nom de la famille et ton nom.");
-          setBusy(false);
-          return;
-        }
-        await signUpWithFamily(email, password, familyName.trim(), adminName.trim());
-      }
-      router.replace("/dashboard");
-    } catch (err) {
-      setError(friendlyError(err));
-    } finally {
-      setBusy(false);
+  const handleConnect = () => {
+    if (!selectedMember) {
+      alert('Veuillez sélectionner votre profil');
+      return;
     }
-  }
+    // Enregistre l'utilisateur connecté dans le stockage du smartphone
+    localStorage.setItem('ff_current_user', selectedMember);
+    localStorage.setItem('ff_foyer_code', foyerCode || 'FLOW-9824');
+    router.push('/dashboard');
+  };
 
   return (
-    <main className="layer min-h-screen grid lg:grid-cols-2">
-      {/* Colonne de presentation, masquee sur mobile pour aller droit au formulaire */}
-      <section className="hidden lg:flex flex-col justify-center px-14 xl:px-20 gap-9">
-        <div className="flex items-center gap-3">
-          <span className="w-12 h-12 rounded-2xl grid place-items-center text-2xl shadow-lg" style={{ background: "linear-gradient(135deg, var(--brand), var(--brand-2))" }}>
-            🏡
-          </span>
-          <span className="text-xl font-extrabold tracking-tight">FamilyFlow</span>
+    <div className="min-h-screen bg-[#fcf9f2] flex flex-col justify-center items-center px-4 py-8 select-none font-sans text-slate-800">
+      <div className="w-full max-w-sm bg-white rounded-3xl border border-orange-100 p-6 shadow-xl space-y-6">
+        
+        {/* Logo & Titre */}
+        <div className="text-center space-y-2">
+          <div className="w-14 h-14 mx-auto rounded-2xl bg-gradient-to-tr from-amber-500 to-[#e76f51] flex items-center justify-center text-white text-2xl font-black shadow-md">
+            FF
+          </div>
+          <h1 className="text-xl font-black text-slate-900">FamilyFlow</h1>
+          <p className="text-xs text-slate-500">Organisation sereine de la maison & du foyer</p>
         </div>
 
-        <div>
-          <h1 className="display text-gradient max-w-lg">Toute la maison, au meme endroit.</h1>
-          <p className="text-ink-dim mt-4 max-w-md leading-relaxed">
-            Les taches, les repas, les courses et le stock de la famille — organises ensemble, sans post-it sur le frigo.
-          </p>
-        </div>
+        {mode === 'choice' ? (
+          <div className="space-y-3 pt-2">
+            <button
+              onClick={() => setMode('join')}
+              className="w-full py-3.5 px-4 bg-[#e76f51] hover:bg-orange-600 text-white font-bold rounded-2xl shadow transition text-sm flex items-center justify-center gap-2"
+            >
+              🔑 Rejoindre avec un Code Foyer
+            </button>
+            <button
+              onClick={() => router.push('/dashboard')}
+              className="w-full py-3 px-4 bg-slate-50 hover:bg-slate-100 text-slate-700 font-semibold rounded-2xl border border-slate-200 transition text-xs"
+            >
+              Créer un nouveau foyer (Admin)
+            </button>
+          </div>
+        ) : (
+          <div className="space-y-4">
+            <div>
+              <label className="block text-xs font-bold text-slate-700 mb-1.5 uppercase tracking-wider">
+                Code Foyer (reçu des parents)
+              </label>
+              <input
+                type="text"
+                placeholder="Ex: FLOW-9824"
+                value={foyerCode}
+                onChange={(e) => setFoyerCode(e.target.value.toUpperCase())}
+                className="w-full p-3 bg-slate-50 border border-slate-200 rounded-2xl text-center text-base font-black tracking-widest text-[#e76f51] uppercase focus:outline-none focus:border-[#e76f51]"
+              />
+            </div>
 
-        <div className="flex flex-col gap-4 max-w-md">
-          {HIGHLIGHTS.map((h) => (
-            <div key={h.title} className="flex items-start gap-3.5">
-              <span className="w-10 h-10 rounded-xl grid place-items-center text-lg shrink-0 shadow-sm" style={{ background: "var(--surface)" }} aria-hidden>
-                {h.icon}
-              </span>
-              <div>
-                <p className="font-bold text-sm">{h.title}</p>
-                <p className="text-[0.8125rem] text-ink-dim mt-0.5">{h.text}</p>
+            {/* Choix du membre */}
+            <div className="space-y-2">
+              <label className="block text-xs font-bold text-slate-600">Qui utilise ce téléphone ?</label>
+              <div className="grid grid-cols-2 gap-2">
+                {dummyMembers.map(m => (
+                  <button
+                    key={m.id}
+                    type="button"
+                    onClick={() => setSelectedMember(m.name)}
+                    className={`p-3 rounded-2xl border flex flex-col items-center gap-1 transition ${
+                      selectedMember === m.name 
+                        ? 'border-[#e76f51] bg-orange-50/50 shadow-sm' 
+                        : 'border-slate-200 bg-slate-50/50'
+                    }`}
+                  >
+                    <div className={`w-8 h-8 rounded-full ${m.avatar} flex items-center justify-center font-bold text-xs`}>
+                      {m.name.charAt(0)}
+                    </div>
+                    <span className="font-bold text-xs text-slate-900">{m.name}</span>
+                    <span className="text-[10px] text-slate-400">{m.role}</span>
+                  </button>
+                ))}
               </div>
             </div>
-          ))}
-        </div>
-      </section>
 
-      {/* Formulaire */}
-      <section className="flex items-center justify-center p-5 sm:p-8">
-        <form onSubmit={handleSubmit} className="card card-lg w-full max-w-sm shadow-lg animate-in">
-          <div className="lg:hidden flex items-center gap-2.5 mb-5">
-            <span className="w-10 h-10 rounded-xl grid place-items-center text-xl shadow-sm" style={{ background: "linear-gradient(135deg, var(--brand), var(--brand-2))" }}>
-              🏡
-            </span>
-            <span className="font-extrabold text-lg tracking-tight">FamilyFlow</span>
-          </div>
-
-          <h2 className="title-lg">{mode === "signin" ? "Content de te revoir" : "Creons ton espace"}</h2>
-          <p className="text-sm text-ink-dim mt-1.5 mb-6">
-            {mode === "signin" ? "Connecte-toi a ton espace familial." : "Tu en seras l'administrateur, et pourras inviter les autres ensuite."}
-          </p>
-
-          {mode === "signup" && (
-            <>
-              <label className="field-label" htmlFor="family">
-                Nom de la famille
-              </label>
-              <input id="family" type="text" value={familyName} onChange={(e) => setFamilyName(e.target.value)} placeholder="Famille El Oualidi" />
-              <label className="field-label" htmlFor="admin">
-                Ton prenom
-              </label>
-              <input id="admin" type="text" value={adminName} onChange={(e) => setAdminName(e.target.value)} placeholder="Adil" />
-            </>
-          )}
-
-          <label className="field-label" htmlFor="email">
-            Email
-          </label>
-          <input id="email" type="email" required value={email} onChange={(e) => setEmail(e.target.value)} placeholder="toi@exemple.com" autoComplete="email" />
-
-          <label className="field-label" htmlFor="password">
-            Mot de passe
-          </label>
-          <input
-            id="password"
-            type="password"
-            required
-            minLength={6}
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            placeholder="Au moins 6 caracteres"
-            autoComplete={mode === "signin" ? "current-password" : "new-password"}
-          />
-
-          {error && (
-            <div className="flex items-start gap-2 text-sm p-3 rounded-xl mb-3" style={{ background: "var(--danger-soft)", color: "var(--danger)" }} role="alert">
-              <span aria-hidden>✕</span>
-              <span className="font-semibold">{error}</span>
+            <div className="flex gap-2 pt-2">
+              <button
+                type="button"
+                onClick={() => setMode('choice')}
+                className="py-3 px-4 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold rounded-2xl text-xs transition"
+              >
+                Retour
+              </button>
+              <button
+                type="button"
+                onClick={handleConnect}
+                className="flex-1 py-3 bg-[#e76f51] hover:bg-orange-600 text-white font-bold rounded-2xl shadow transition text-xs"
+              >
+                Entrer dans le Foyer →
+              </button>
             </div>
-          )}
+          </div>
+        )}
 
-          <button className="btn primary w-full !py-3" type="submit" disabled={busy}>
-            {busy ? "Un instant…" : mode === "signin" ? "Se connecter" : "Creer mon espace"}
-          </button>
-
-          <button
-            type="button"
-            className="btn ghost w-full mt-2"
-            onClick={() => {
-              setError(null);
-              setMode(mode === "signin" ? "signup" : "signin");
-            }}
-          >
-            {mode === "signin" ? "Pas encore de compte ? En creer un" : "Deja un compte ? Se connecter"}
-          </button>
-        </form>
-      </section>
-    </main>
+      </div>
+    </div>
   );
 }
